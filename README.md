@@ -4,26 +4,17 @@
 
 ## 📌 Project Overview
 
-This project is an enterprise-grade **AI-driven DevOps automation platform** designed to convert natural language inputs into **production-ready, policy-compliant Terraform infrastructure** using a Retrieval-Augmented Generation (RAG) architecture.
+This project is an enterprise-grade AI-driven DevOps automation platform designed to convert natural language inputs into production-ready, policy-compliant Terraform infrastructure using a Retrieval-Augmented Generation (RAG) architecture.
 
-In large-scale environments, teams face a key challenge:  
-Developers want the speed of AI, but organizations require strict compliance, security, and standardization. Traditional approaches either rely on manual Terraform development (slow and inconsistent) or public AI tools (fast but unreliable and insecure).
+In real-world enterprise environments, there is always a conflict between speed and compliance. Developers want faster infrastructure provisioning using AI, but organizations require strict adherence to security policies, naming standards, and governance rules. Traditional approaches either rely on manual Terraform development, which is slow and inconsistent, or public AI tools, which are fast but unreliable and risky.
 
-To solve this, this platform introduces a **private, secure RAG pipeline** that retrieves only approved infrastructure modules — referred to as **Golden Modules** — and uses them to guide LLM-based generation. Instead of generating infrastructure blindly, the system ensures that every output is grounded in enterprise-approved templates.
+To address this, the system introduces a private RAG-based platform where infrastructure is not generated blindly. Instead, it retrieves approved “Golden Terraform modules” and uses them as the foundation for generation. This ensures consistency, reduces hallucination, and enforces compliance.
 
-The system integrates directly with GitHub, enabling a GitOps workflow where generated infrastructure is automatically pushed as a Pull Request, ensuring human validation before deployment. This approach significantly improves both speed and governance.
-
----
-
-## 🏗️ High-Level Architecture (Flow Overview)
-
-User Request → Flask UI → Composer Lambda → Retriever Lambda → AOSS (Vector + BM25 Search) →  
-Golden Modules (S3) + Metadata (DynamoDB) → Policy Injection (SSM) → Bedrock (Claude 3.5) →  
-Validation Layer → S3 Storage → GitHub PR
+The platform integrates with GitHub to create Pull Requests automatically, enabling a GitOps workflow where all infrastructure changes are reviewed before deployment. This balances automation with control.
 
 ---
 
-## 🧭 High-Level Data Flow Diagram
+## 🏗️ High-Level Architecture
                     +----------------------+
                     |      User (UI)       |
                     |     Flask App        |
@@ -83,43 +74,60 @@ Validation Layer → S3 Storage → GitHub PR
                     |   (GitOps Flow)      |
                     +----------------------+
 ```text
+User (Flask UI)
+      |
+      v
+Composer Lambda (Orchestrator)
+      |
+      v
+Retriever Lambda
+      |
+      v
+AOSS (Vector + BM25 Search)
+      |
+      v
+S3 (Golden Modules) + DynamoDB (Metadata)
+      |
+      v
+Composer (Policy Injection + Prompt)
+      |
+      v
+AWS Bedrock (Claude 3.5)
+      |
+      v
+Terraform Validate
+      |
+      v
+S3 (Artifacts)
+      |
+      v
+GitHub PR
+🔄 High-Level Data Flow
 
-User → Flask UI → Composer Lambda → Retriever Lambda → AOSS  
-→ (S3 Golden Modules + DynamoDB Metadata)  
-→ Composer (Policy Injection via SSM)  
-→ Bedrock (Claude 3.5)  
-→ Terraform Validate  
-→ S3 Storage  
-→ GitHub PR
-🔄 End-to-End Data Flow (Detailed Explanation)
+The system follows a structured pipeline where user intent is progressively refined into infrastructure code. When a user submits a request through the UI, it is first handled by the Composer Lambda, which acts as the central orchestrator. Instead of directly calling the LLM, the system performs retrieval to ensure accuracy.
 
-The system follows a structured flow where each component plays a specific role in transforming user intent into infrastructure code.
+The Retriever Lambda converts the query into embeddings and searches OpenSearch Serverless using hybrid search. Relevant Terraform modules are fetched from S3 and filtered using metadata from DynamoDB. These modules act as the context for generation.
 
-When a user submits a request through the UI, the Composer Lambda acts as the entry point and orchestrates the process. Instead of directly invoking the LLM, the system first performs retrieval. The Retriever Lambda converts the query into an embedding and queries OpenSearch Serverless using hybrid search.
+The Composer then injects enterprise policies and builds a structured prompt, which is sent to Bedrock. The generated Terraform code is validated and then pushed to GitHub as a Pull Request, completing the workflow.
 
-This retrieval step ensures that only relevant Golden Modules are fetched. These modules are originally stored in S3 and indexed during the ingestion process. Metadata stored in DynamoDB helps refine results further based on filters like version, environment, or tags.
-
-Once the relevant modules are retrieved, the Composer Lambda injects enterprise policies and constructs a structured prompt. This prompt is then sent to Amazon Bedrock, where the LLM generates Terraform code grounded in the retrieved modules.
-
-Before finalizing the output, the system validates the generated Terraform using terraform validate. If errors are detected, they are fed back into the system for correction. Finally, the validated output is stored in S3 and pushed to GitHub as a Pull Request.
-
-🔄 Detailed Data Flow Diagram (Step-by-Step)
+🔄 Detailed Data Flow steps
 1. User → Flask UI
 2. UI → Composer Lambda
 3. Composer → Retriever Lambda
-4. Retriever → Convert Query → Embedding
-5. Retriever → Query AOSS (KNN + BM25)
-6. AOSS → Fetch Modules (from S3 indexed data)
-7. DynamoDB → Apply Metadata Filters
-8. Composer → Inject Policies (SSM)
-9. Composer → Build Prompt
-10. Prompt → Bedrock (Claude 3.5)
-11. Bedrock → Generate Terraform
-12. Output → terraform validate
-13. If error → feedback loop → Bedrock
-14. Valid output → S3
-15. S3 → GitHub PR
-🧱  SEQUENCE DIAGRAM
+4. Retriever → Query → Embedding
+5. Retriever → AOSS (KNN + BM25)
+6. AOSS → Return Top-K Modules
+7. DynamoDB → Metadata Filtering
+8. S3 → Fetch Module Content
+9. Composer → Inject Policies (SSM)
+10. Composer → Build Prompt
+11. Prompt → Bedrock (Claude)
+12. Bedrock → Generate Terraform
+13. Terraform → Validate
+14. If Error → Feedback Loop
+15. Valid Output → S3
+16. S3 → GitHub PR
+⏱️ Sequence Diagram
 User        UI        Composer      Retriever      AOSS       Bedrock     GitHub
  |           |             |              |            |           |          |
  |---------> |             |              |            |           |          |
@@ -141,60 +149,81 @@ User        UI        Composer      Retriever      AOSS       Bedrock     GitHub
  |           |             | ---------------------------------------------->|
  |           |             |         Create PR (GitHub)                     |
  |           |             |              |            |           |          |
-🔷 1. Infrastructure Layer (Terraform + AWS Services)
+User → UI → Composer → Retriever → AOSS
+Retriever → S3 + DynamoDB → Composer
+Composer → Bedrock → Terraform Output
+Output → Validation → S3 → GitHub PR
+🧱 Architecture Layers
+🔷 Infrastructure Layer
 
-The infrastructure layer forms the secure foundation of the entire system. All resources are provisioned using Terraform, ensuring consistency and reproducibility across environments. The system is deployed inside a VPC to enforce strict network isolation, and VPC endpoints are used for services like Bedrock, S3, and OpenSearch to ensure that no data traverses the public internet.
+The infrastructure layer is designed with a strong focus on security and isolation. All components are provisioned using Terraform, ensuring reproducibility across environments. The system is deployed inside a VPC, and all service interactions happen through VPC endpoints, preventing exposure to the public internet.
 
-From a data flow perspective, every request initiated from the UI flows through private network channels into Lambda services. These Lambda functions interact with other AWS services securely using IAM roles with least privilege. Encryption is enforced using KMS to protect data at rest, ensuring compliance with enterprise security standards.
+From a data flow perspective, user requests enter through the UI and travel securely through Lambda functions into AWS services. IAM roles enforce least privilege access, and KMS encryption ensures data protection at rest.
 
 Data Flow:
-User → VPC → Lambda → VPC Endpoint → AWS Services
+User → VPC → Lambda → AWS Services (via private endpoints)
 
-🔷 2. Data Layer (S3 + DynamoDB + AOSS)
+🔷 Data Layer
 
-The data layer is responsible for storing and organizing all knowledge required by the system. S3 acts as the primary storage for Golden Terraform modules, which serve as the source of truth. DynamoDB is used to store metadata such as module version, tags, and environment information, enabling efficient filtering during retrieval.
+The data layer combines structured and unstructured storage to enable efficient retrieval. S3 stores Golden Terraform modules, which serve as the source of truth. DynamoDB maintains metadata such as module versions and tags.
 
-OpenSearch Serverless (AOSS) is used to store embeddings and perform vector-based search. When data flows into this layer during ingestion, Terraform modules are processed and indexed into AOSS. During runtime, queries from the Retriever Lambda are matched against these embeddings to find semantically relevant modules.
+OpenSearch Serverless stores embeddings and enables semantic search. During retrieval, both vector similarity and metadata filtering are used together to ensure accurate results.
 
 Data Flow:
 S3 → Embedding → AOSS
-DynamoDB → Metadata Filter → Retrieval
+DynamoDB → Metadata → Filter
 
-🔷 3. Ingestion Layer (Embedding + Indexing Pipeline)
+🔷 Ingestion Layer
 
-The ingestion layer is responsible for preparing Terraform modules for retrieval. Whenever modules are updated in GitHub, a Python-based pipeline processes them. Instead of indexing entire files, the system performs semantic chunking, breaking modules into logical units such as resources or configurations.
+The ingestion pipeline ensures that Terraform modules are continuously updated and indexed. When new modules are added or updated, they are processed through a pipeline that performs semantic chunking.
 
-Each chunk is converted into an embedding using a Bedrock embedding model. These embeddings capture the semantic meaning of the content and are stored in OpenSearch Serverless. Metadata is also attached and stored in DynamoDB to support filtering.
+Each chunk is converted into embeddings using Bedrock and indexed into OpenSearch. Metadata is stored in DynamoDB, ensuring that retrieval remains efficient and context-aware.
 
 Data Flow:
 GitHub → Pipeline → Chunking → Embedding → AOSS + DynamoDB
 
-🔷 4. Retrieval & Generation Layer (Lambda + Bedrock)
+🔷 Retrieval & Generation Layer
 
-This is the core intelligence layer where RAG is implemented. When a user request arrives, the Retriever Lambda converts it into an embedding and queries AOSS to fetch relevant modules. These modules represent the contextual knowledge required for generation.
+This is the core intelligence layer where RAG is implemented. The Retriever Lambda converts user queries into embeddings and retrieves relevant modules from OpenSearch.
 
-The Composer Lambda then enriches this context by injecting enterprise policies retrieved from systems like AWS SSM Parameter Store. It constructs a structured prompt that clearly separates user input, retrieved context, and constraints.
-
-This prompt is sent to Amazon Bedrock, where Claude 3.5 Sonnet processes it and generates Terraform code.
+The Composer Lambda then builds a structured prompt by combining user input, retrieved modules, and enterprise policies. This prompt is sent to Bedrock, which generates Terraform code grounded in real data.
 
 Data Flow:
 User Query → Embedding → AOSS → Modules → Composer → Bedrock
 
-🔷 5. Application Layer (Flask UI + GitHub Integration)
+🔷 Application Layer
 
-The application layer provides the interface through which users interact with the system. A Flask-based UI allows users to submit natural language requests, which are then processed by backend services.
+The application layer provides user interaction and integrates with DevOps workflows. Users interact via a Flask UI, and outputs are automatically converted into GitHub Pull Requests.
 
-From a data flow perspective, user input flows into the Lambda orchestration layer, and the final output flows back as a GitHub Pull Request. This ensures that the system integrates seamlessly with existing DevOps workflows.
+This ensures that all generated infrastructure undergoes human review, maintaining control and traceability. Outputs are also stored in S3 for auditing.
 
 Data Flow:
 User → UI → Lambda → Output → GitHub PR
 
-⚙️ Commands (Execution Guide)
-🔷 Terraform Setup
+⚙️ Commands (End-to-End Execution)
+🔷 Terraform Commands
 terraform init
 terraform validate
 terraform plan
 terraform apply
+🔷 Jenkins Pipeline (CI/CD)
+pipeline {
+  agent any
+  stages {
+    stage('Checkout') {
+      steps { git 'repo-url' }
+    }
+    stage('Terraform Init') {
+      steps { sh 'terraform init' }
+    }
+    stage('Terraform Plan') {
+      steps { sh 'terraform plan' }
+    }
+    stage('Terraform Apply') {
+      steps { sh 'terraform apply -auto-approve' }
+    }
+  }
+}
 🔷 Ingestion Pipeline
 python ingestion_pipeline.py
 🔷 Run Application
@@ -202,13 +231,12 @@ pip install -r requirements.txt
 python app.py
 🔷 Lambda Deployment
 zip function.zip lambda_function.py
+
 aws lambda update-function-code \
   --function-name retriever-lambda \
   --zip-file fileb://function.zip
-🔷 Validation
-terraform validate
 📈 Business Impact
-Reduced infrastructure provisioning time by ~70%
-Improved consistency and compliance
+Reduced provisioning time by ~70%
+Improved compliance and standardization
 Enabled AI-driven DevOps workflows
-Reduced manual effort and errors
+Reduced manual errors and inconsistencies
