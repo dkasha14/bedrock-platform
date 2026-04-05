@@ -16,18 +16,64 @@ The system integrates with GitHub to automatically create Pull Requests, enablin
 
 ## 🏗️ High-Level Architecture (Mermaid)
 
-```mermaid
-flowchart TD
-    A[User - Flask UI] --> B[Composer Lambda]
-    B --> C[Retriever Lambda]
-    C --> D[AOSS - Vector + BM25]
-    D --> E[S3 - Golden Modules]
-    D --> F[DynamoDB - Metadata]
-    B --> G[Policy Injection - SSM]
-    B --> H[Bedrock - Claude 3.5]
-    H --> I[Terraform Validate]
-    I --> J[S3 - Artifacts]
-    J --> K[GitHub PR]
+                    +----------------------+
+                    |      User (UI)       |
+                    |     Flask App        |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |  Composer Lambda     |
+                    | (Orchestration Layer)|
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |  Retriever Lambda    |
+                    | (Embedding + Search) |
+                    +----------+-----------+
+                               |
+         -------------------------------------------------
+         |                                               |
+         v                                               v
++----------------------+                    +----------------------+
+|  OpenSearch (AOSS)   |                    |   DynamoDB           |
+|  Vector + BM25       |                    |   Metadata Store     |
++----------+-----------+                    +----------+-----------+
+           |                                               |
+           v                                               v
+                    +----------------------+
+                    |     S3 Bucket        |
+                    |  Golden Modules      |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |   Composer Lambda    |
+                    | (Prompt + Policies)  |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |   AWS Bedrock        |
+                    | Claude 3.5 Sonnet    |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    | Terraform Validation |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |   S3 (Artifacts)     |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |   GitHub PR          |
+                    |   (GitOps Flow)      |
+                    +----------------------+
 🔄 High-Level Data Flow
 
 The system follows a structured pipeline where user intent is progressively transformed into infrastructure code. When a user submits a request through the UI, it is first handled by the Composer Lambda, which acts as the orchestrator.
@@ -36,7 +82,24 @@ Instead of directly calling the LLM, the system performs retrieval using the Ret
 
 The Composer then injects enterprise policies and builds a structured prompt, which is sent to Bedrock. The generated Terraform is validated and pushed to GitHub as a Pull Request.
 
-🔄 Detailed Data Flow (Mermaid)
+🔄 Detailed Data Flow steps
+
+1. User submits request via Flask UI
+2. Request is sent to Composer Lambda
+3. Composer invokes Retriever Lambda
+4. Retriever converts query → embedding
+5. Retriever queries AOSS (vector + BM25)
+6. AOSS returns top-k relevant modules
+7. Metadata is fetched from DynamoDB
+8. Modules are fetched from S3
+9. Composer injects enterprise policies (SSM)
+10. Composer builds structured prompt
+11. Prompt sent to Bedrock
+12. Bedrock generates Terraform code
+13. Code validated using terraform validate
+14. If error → feedback loop to Bedrock
+15. Final output stored in S3
+16. GitHub PR created for review
 🧱 Architecture Layers
 🔷 Infrastructure Layer
 
@@ -85,7 +148,7 @@ Data Flow:
 User → UI → Lambda → Output → GitHub PR
 
 ⚙️ Commands
-🔷 Terraform
+🔷 Terraform 
 terraform init
 terraform validate
 terraform plan
