@@ -1,20 +1,16 @@
-# 🚀 AI-Driven DevOps RAG Platform for Infrastructure as Code (IaC) using AWS Bedrock
+## 🧭 High-Level Data Flow
+
+The system follows a structured pipeline where user intent is progressively transformed into infrastructure code in a controlled and secure manner.  
+
+When a user submits a request through the Flask UI, the request is first handled by the Composer Lambda, which acts as the orchestration layer. Instead of directly invoking the LLM, the system performs a retrieval step to ensure that the generation is grounded in enterprise-approved data.  
+
+The Retriever Lambda converts the user query into embeddings and performs a hybrid search (vector + BM25) in OpenSearch Serverless (AOSS). It retrieves relevant "Golden Terraform modules" stored in S3 and refines results using metadata from DynamoDB.  
+
+The Composer then injects enterprise policies and constructs a structured prompt, which is sent to AWS Bedrock (Claude 3.5 Sonnet). The generated Terraform output is validated and stored in S3, and finally pushed to GitHub as a Pull Request for review.
 
 ---
 
-## 📌 Project Overview
-
-This project is an enterprise-grade AI-driven DevOps platform that converts natural language requests into production-ready, policy-compliant Terraform infrastructure using a Retrieval-Augmented Generation (RAG) architecture.
-
-In enterprise environments, there is always a gap between fast AI-generated output and strict infrastructure compliance. Developers either write Terraform manually, which is slow and inconsistent, or use AI tools that generate code quickly but fail to meet internal standards.
-
-To solve this, the platform uses a private RAG pipeline where only approved “Golden Terraform modules” are retrieved and used to guide generation. This ensures that all outputs are secure, standardized, and compliant.
-
-The system integrates with GitHub to automatically create Pull Requests, enabling a GitOps workflow with human validation.
-
----
-
-## 🏗️ Architecture Diagram
+## 🔄 Data Flow Diagram
 
 ```text
 User (Flask UI)
@@ -23,22 +19,16 @@ User (Flask UI)
 Composer Lambda (Orchestrator)
       |
       v
-Retriever Lambda
+Retriever Lambda (Embedding + Search)
       |
       v
-+---------------------------+
-| OpenSearch (AOSS)         |
-| Vector + BM25 Search      |
-+---------------------------+
+OpenSearch (AOSS - Vector + BM25)
       |
       v
-+---------------------------+
-| S3 (Golden Modules)       |
-| DynamoDB (Metadata)       |
-+---------------------------+
+S3 (Golden Modules) + DynamoDB (Metadata)
       |
       v
-Composer Lambda (Policy Injection + Prompt)
+Composer Lambda (Prompt + Policy Injection)
       |
       v
 AWS Bedrock (Claude 3.5 Sonnet)
@@ -51,34 +41,27 @@ S3 (Artifacts Storage)
       |
       v
 GitHub PR (GitOps Workflow)
----
----
-🔄 High-Level Data Flow
-
-The system follows a structured pipeline where user intent is progressively transformed into infrastructure code. When a user submits a request through the UI, it is first handled by the Composer Lambda, which acts as the orchestrator.
-
-Instead of directly calling the LLM, the system performs retrieval using the Retriever Lambda. The query is converted into embeddings and searched against OpenSearch Serverless using hybrid search. Relevant modules are fetched from S3 and filtered using metadata from DynamoDB.
-
-The Composer then injects enterprise policies and builds a structured prompt, which is sent to Bedrock. The generated Terraform is validated and pushed to GitHub as a Pull Request.
-
-🔄 Detailed Data Flow steps
-
-1. User submits request via Flask UI
-2. Request is sent to Composer Lambda
-3. Composer invokes Retriever Lambda
-4. Retriever converts query → embedding
-5. Retriever queries AOSS (vector + BM25)
-6. AOSS returns top-k relevant modules
-7. Metadata is fetched from DynamoDB
-8. Modules are fetched from S3
-9. Composer injects enterprise policies (SSM)
-10. Composer builds structured prompt
-11. Prompt sent to Bedrock
-12. Bedrock generates Terraform code
-13. Code validated using terraform validate
-14. If error → feedback loop to Bedrock
-15. Final output stored in S3
-16. GitHub PR created for review
+🔁 Detailed Data Flow Steps
+User submits request via Flask UI
+Request is forwarded to Composer Lambda
+Composer invokes Retriever Lambda
+Query is converted into embedding
+Retriever queries AOSS (vector + BM25 search)
+Relevant modules are fetched from S3
+Metadata filtering applied using DynamoDB
+Composer injects enterprise policies (SSM)
+Structured prompt is constructed
+Prompt is sent to AWS Bedrock
+Terraform code is generated
+Code is validated using terraform validate
+If validation fails → feedback loop to LLM
+Valid output stored in S3
+GitHub PR is created for review
+⏱️ Sequence Flow
+User → UI → Composer → Retriever → AOSS
+Retriever → S3 + DynamoDB → Composer
+Composer → Bedrock → Terraform Output
+Output → Validation → S3 → GitHub PR
 🧱 Architecture Layers
 🔷 Infrastructure Layer
 
