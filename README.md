@@ -73,35 +73,7 @@ The platform integrates with GitHub to create Pull Requests automatically, enabl
                     |   GitHub PR          |
                     |   (GitOps Flow)      |
                     +----------------------+
-```text
-User (Flask UI)
-      |
-      v
-Composer Lambda (Orchestrator)
-      |
-      v
-Retriever Lambda
-      |
-      v
-AOSS (Vector + BM25 Search)
-      |
-      v
-S3 (Golden Modules) + DynamoDB (Metadata)
-      |
-      v
-Composer (Policy Injection + Prompt)
-      |
-      v
-AWS Bedrock (Claude 3.5)
-      |
-      v
-Terraform Validate
-      |
-      v
-S3 (Artifacts)
-      |
-      v
-GitHub PR
+
 🔄 High-Level Data Flow
 
 The system follows a structured pipeline where user intent is progressively refined into infrastructure code. When a user submits a request through the UI, it is first handled by the Composer Lambda, which acts as the central orchestrator. Instead of directly calling the LLM, the system performs retrieval to ensure accuracy.
