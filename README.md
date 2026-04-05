@@ -51,7 +51,6 @@ S3 (Artifacts Storage)
       |
       v
 GitHub PR (GitOps Workflow)
----
 
 
 🔄 High-Level Data Flow
