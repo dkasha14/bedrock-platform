@@ -51,8 +51,8 @@ S3 (Artifacts Storage)
       |
       v
 GitHub PR (GitOps Workflow)
-
-
+---
+---
 🔄 High-Level Data Flow
 
 The system follows a structured pipeline where user intent is progressively transformed into infrastructure code. When a user submits a request through the UI, it is first handled by the Composer Lambda, which acts as the orchestrator.
