@@ -1,4 +1,4 @@
-**# 🚀 AI-Driven DevOps RAG Platform for Infrastructure as Code (IaC) using AWS Bedrock
+# 🚀 AI-Driven DevOps RAG Platform for Infrastructure as Code (IaC) using AWS Bedrock
 
 ---
 
@@ -6,74 +6,54 @@
 
 This project is an enterprise-grade AI-driven DevOps platform that converts natural language requests into production-ready, policy-compliant Terraform infrastructure using a Retrieval-Augmented Generation (RAG) architecture.
 
-In enterprise environments, there is always a trade-off between speed and compliance. Developers need fast infrastructure provisioning, while organizations require strict governance, security, and standardization. Traditional approaches either rely on manual Terraform development, which is slow and inconsistent, or public AI tools, which are fast but unreliable.
+In enterprise environments, there is always a gap between fast AI-generated output and strict infrastructure compliance. Developers either write Terraform manually, which is slow and inconsistent, or use AI tools that generate code quickly but fail to meet internal standards.
 
-To solve this, the platform introduces a private RAG pipeline that retrieves only approved “Golden Terraform modules” and uses them to guide LLM-based generation. This ensures outputs are secure, standardized, and compliant.
+To solve this, the platform uses a private RAG pipeline where only approved “Golden Terraform modules” are retrieved and used to guide generation. This ensures that all outputs are secure, standardized, and compliant.
 
-The system integrates with GitHub to automatically create Pull Requests, enabling a GitOps workflow with human validation before deployment.
+The system integrates with GitHub to automatically create Pull Requests, enabling a GitOps workflow with human validation.
 
 ---
 
-## 🏗️ High-Level Architecture (Mermaid)
+## 🏗️ Architecture Diagram
 
-                    +----------------------+
-                    |      User (UI)       |
-                    |     Flask App        |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |  Composer Lambda     |
-                    | (Orchestration Layer)|
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |  Retriever Lambda    |
-                    | (Embedding + Search) |
-                    +----------+-----------+
-                               |
-         -------------------------------------------------
-         |                                               |
-         v                                               v
-+----------------------+                    +----------------------+
-|  OpenSearch (AOSS)   |                    |   DynamoDB           |
-|  Vector + BM25       |                    |   Metadata Store     |
-+----------+-----------+                    +----------+-----------+
-           |                                               |
-           v                                               v
-                    +----------------------+
-                    |     S3 Bucket        |
-                    |  Golden Modules      |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |   Composer Lambda    |
-                    | (Prompt + Policies)  |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |   AWS Bedrock        |
-                    | Claude 3.5 Sonnet    |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    | Terraform Validation |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |   S3 (Artifacts)     |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |   GitHub PR          |
-                    |   (GitOps Flow)      |
-                    +----------------------+
+```text
+User (Flask UI)
+      |
+      v
+Composer Lambda (Orchestrator)
+      |
+      v
+Retriever Lambda
+      |
+      v
++---------------------------+
+| OpenSearch (AOSS)         |
+| Vector + BM25 Search      |
++---------------------------+
+      |
+      v
++---------------------------+
+| S3 (Golden Modules)       |
+| DynamoDB (Metadata)       |
++---------------------------+
+      |
+      v
+Composer Lambda (Policy Injection + Prompt)
+      |
+      v
+AWS Bedrock (Claude 3.5 Sonnet)
+      |
+      v
+Terraform Validate
+      |
+      v
+S3 (Artifacts Storage)
+      |
+      v
+GitHub PR (GitOps Workflow)
+---
+
+
 🔄 High-Level Data Flow
 
 The system follows a structured pipeline where user intent is progressively transformed into infrastructure code. When a user submits a request through the UI, it is first handled by the Composer Lambda, which acts as the orchestrator.
